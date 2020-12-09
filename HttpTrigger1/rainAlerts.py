@@ -5,6 +5,8 @@
 
 import requests, os, datetime, json
 
+import azure.functions as func
+
 def mm_to_inch(mm):
     # Simple function to convert mm to inches as the API doesn't seem to want to do that.
     inches = mm * 0.0393701
@@ -42,6 +44,10 @@ class OpenWeather:
         # Making API call 
         data = self.one_call_historical(lat, lon, start_date, end_date)
 
+        if data.status_code != 200:
+            response_data = {'text':data.text, 'status_code' : data.status_code}
+            return response_data
+
         # Extracting hourly weather data from API response
         hourly_data = json.loads(data.text)['hourly']
 
@@ -70,10 +76,11 @@ class OpenWeather:
                     all_hourly_data_filtered.append(record)
             
             # create new data with api call and all hourly data
-            data = json.loads(data.text)
+            return_data = json.loads(data.text)
             # sorting hourly data list by time stamp before returning
-            data['hourly'] = sorted(all_hourly_data_filtered, key = lambda i: i['dt'])
-            return data
+            return_data['hourly'] = sorted(all_hourly_data_filtered, key = lambda i: i['dt'])
+            return_data['status_code'] = data.status_code
+            return return_data
 
 def get_rain_accumulation(hourly_data):
     
@@ -100,6 +107,9 @@ def main_function(end_date, start_date, lat, lon):
 
     data = ow.historical_between_dates(lat, lon, start_date, end_date, end_date)
 
+    if data['status_code'] != 200:
+        return data
+
     rain_accumulation = get_rain_accumulation(data['hourly'])
 
     json_start_date = start_date.isoformat()
@@ -113,7 +123,7 @@ def main_function(end_date, start_date, lat, lon):
     
     # print("Accumulated Rainfall between %s and %s is %s inches" % (start_time, end_time,  round(accumulated_rainfall,2)))
 
-    return json.dumps({'start_date' : json_start_date, 'end_date' : json_end_date, 'rain_accumulation' : round(rain_accumulation, 2)})
+    return {'text' :{'start_date' : json_start_date, 'end_date' : json_end_date, 'rain_accumulation' : round(rain_accumulation, 2)}, 'status_code' : data['status_code']}
 
 
 # if __name__ == "__main__":

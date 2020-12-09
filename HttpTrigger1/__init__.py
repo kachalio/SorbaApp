@@ -1,4 +1,4 @@
-import logging, datetime, os
+import logging, datetime, os, json
 
 import azure.functions as func
 
@@ -10,8 +10,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     name = req.params.get('name', "Zack")
 
     # getting parameters
-    end_date_hours_ago = req.params.get('end_date_hours_ago', int(os.environ.get('END_DATE_HOURS_AGO')))
-    start_date_hours_previous = req.params.get('start_date_hours_previous', int(os.environ.get('START_DATE_HOURS_PREVIOUS')))
+    end_date_hours_ago = int(req.params.get('end_date_hours_ago', os.environ.get('END_DATE_HOURS_AGO')))
+    start_date_hours_previous = int(req.params.get('start_date_hours_previous', os.environ.get('START_DATE_HOURS_PREVIOUS')))
     lat = req.params.get('lat', os.environ.get('LAT'))
     lon = req.params.get('lon', os.environ.get('LNG'))
 
@@ -31,7 +31,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     data = rainAlerts.main_function(end_date, start_date, lat, lon)
 
     if data:
-        return func.HttpResponse(f"{data}")
+        return func.HttpResponse(data['text'],status_code=data['status_code'])
     else:
         return func.HttpResponse(
              "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response.",
