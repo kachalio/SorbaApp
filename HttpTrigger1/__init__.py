@@ -10,10 +10,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     name = req.params.get('name', "Zack")
 
     # getting parameters
-    end_date_hours_ago = int(req.params.get('end_date_hours_ago', os.environ['END_DATE_HOURS_AGO']))
-    start_date_hours_previous = int(req.params.get('start_date_hours_previous', os.environ['START_DATE_HOURS_PREVIOUS']))
-    lat = req.params.get('lat', os.environ['LAT'])
-    lon = req.params.get('lon', os.environ['LNG'])
+    end_date_hours_ago = int(req.params.get('end_date_hours_ago', os.environ["END_DATE_HOURS_AGO"]))
+    start_date_hours_previous = int(req.params.get('start_date_hours_previous', os.environ["START_DATE_HOURS_PREVIOUS"]))
+    lat = req.params.get('lat', os.environ["LAT"])
+    lon = req.params.get('lon', os.environ["LNG"])
 
     # using date hours ago parameters to create date objects
     end_date = (datetime.datetime.now() - datetime.timedelta(hours=int(end_date_hours_ago))).replace(microsecond=0)
