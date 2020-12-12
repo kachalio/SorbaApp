@@ -21,8 +21,8 @@ class OpenWeather:
         params = {
             'units' : units,
             'appid' : self.api_key,
-            'lat' : lat,
-            'lon' : lon,
+            'lat' : float(lat),
+            'lon' : float(lon),
             'dt' : str(end_date.timestamp()).split(".")[0]
         }
         
@@ -57,37 +57,41 @@ class OpenWeather:
 
         # Making API call 
         response_weather_data = self.onecall_historical(lat, lon, end_date)
+        return_weather_data_dict = {'text' : response_weather_data.text, 'status_code' : response_weather_data.status_code}
 
-        if response_weather_data.status_code != 200:
-            return_weather_data_dict = {'text':response_weather_data.text, 'status_code' : response_weather_data.status_code}
+        if return_weather_data_dict['status_code'] != 200:
             return return_weather_data_dict
 
-        # Extracting hourly weather data from API response
-        hourly_weather_data_list = json.loads(response_weather_data.text)['hourly']
+        if 'hourly' in return_weather_data_dict['text']:
 
-        # Getting the earliest date from weather dataset
-        hourly_weather_data_earliest_date = datetime.datetime.fromtimestamp(hourly_weather_data_list[0]['dt'])
+            # Extracting hourly weather data from API response
+            hourly_weather_data_list = json.loads(response_weather_data.text)['hourly']
 
-        # Decreasing the earliest date by one hour
-        new_end_date = (hourly_weather_data_earliest_date - datetime.timedelta(hours=1)).replace(microsecond=0)
+            # Getting the earliest date from weather dataset
+            hourly_weather_data_earliest_date = datetime.datetime.fromtimestamp(hourly_weather_data_list[0]['dt'])
 
-        # Checking to see if the earliest date in the weather data list is greater than the start date
-        if hourly_weather_data_earliest_date > start_date:
-            # adding current hourly weather data list into all hourly data list
-            all_hourly_data = hourly_weather_data_list + all_hourly_data
-            # calling this function again to query the API with a new, earlier date range
-            return self.onecall_historical_between_dates(lat, lon, start_date, new_end_date, original_end_date, all_hourly_data, units=units)
-        # iterate hourly weather data to add to filter results to specified time range
+            # Decreasing the earliest date by one hour
+            new_end_date = (hourly_weather_data_earliest_date - datetime.timedelta(hours=1)).replace(microsecond=0)
+
+            # Checking to see if the earliest date in the weather data list is greater than the start date
+            if hourly_weather_data_earliest_date > start_date:
+                # adding current hourly weather data list into all hourly data list
+                all_hourly_data = hourly_weather_data_list + all_hourly_data
+                # calling this function again to query the API with a new, earlier date range
+                return self.onecall_historical_between_dates(lat, lon, start_date, new_end_date, original_end_date, all_hourly_data, units=units)
+            # iterate hourly weather data to add to filter results to specified time range
+            else:
+                # Combine all weather data with most recent weather list
+                all_hourly_data.extend(hourly_weather_data_list)
+
+                date_filtered_weather_data = self.filter_weather_data_dates(all_hourly_data, start_date, original_end_date)
+
+                # return return_data
+                return date_filtered_weather_data
         else:
-            
-            # Combine all weather data with most recent weather list
-            all_hourly_data.extend(hourly_weather_data_list)
-
-            date_filtered_weather_data = self.filter_weather_data_dates(all_hourly_data, start_date, original_end_date)
-
-            # return return_data
-            return date_filtered_weather_data
-
+            # return_weather_data_dict['status_code'] = 400
+            # return return_weather_data_dict
+            return {'status_code' : 400, 'text' : "'hourly' key not found in results"}
     
     def mm_to_inch(self, mm):
         # Simple function to convert mm to inches as the API doesn't seem to want to do that.
@@ -103,3 +107,22 @@ class OpenWeather:
                 accumulated_rainfall += rain_accumulation_in_inches
         
         return accumulated_rainfall
+
+# def main():
+#     # getting parameters
+#     lat = os.environ["LAT"]
+#     lon = os.environ["LNG"]
+#     end_date_hours_ago = int(os.environ["END_DATE_HOURS_AGO"])
+#     start_date_hours_previous = int(os.environ["START_DATE_HOURS_PREVIOUS"])
+#     end_date = (datetime.datetime.now() - datetime.timedelta(hours=int(end_date_hours_ago))).replace(microsecond=0)
+#     start_date = (end_date - datetime.timedelta(hours=int(start_date_hours_previous))).replace(microsecond=0)
+#     return_data = None
+
+#     ow = OpenWeather(os.environ["API_KEY"])
+
+#     result = ow.onecall_historical(lat, lon, end_date)
+
+#     print(result)
+
+# if __name__ == "__main__":
+#     main()
