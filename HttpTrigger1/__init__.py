@@ -10,16 +10,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
 
     # getting parameters
-    lat = req.params.get('lat', os.environ["LAT"])
-    lon = req.params.get('lon', os.environ["LNG"])
-    end_date_hours_ago = int(req.params.get('end_date_hours_ago', os.environ["END_DATE_HOURS_AGO"]))
-    start_date_hours_previous = int(req.params.get('start_date_hours_previous', os.environ["START_DATE_HOURS_PREVIOUS"]))
+    lat = req.params.get('lat', os.environ["OW_LAT"])
+    lon = req.params.get('lon', os.environ["OW_LNG"])
+    end_date_hours_ago = int(req.params.get('end_date_hours_ago', os.environ["OW_END_DATE_HOURS_AGO"]))
+    start_date_hours_previous = int(req.params.get('start_date_hours_previous', os.environ["OW_START_DATE_HOURS_PREVIOUS"]))
     end_date = (datetime.datetime.now() - datetime.timedelta(hours=int(end_date_hours_ago))).replace(microsecond=0)
     start_date = (end_date - datetime.timedelta(hours=int(start_date_hours_previous))).replace(microsecond=0)
     return_data = None
 
     # Creating an open weather object
-    ow = OpenWeather(os.environ["API_KEY"])
+    ow = OpenWeather(os.environ["OW_API_KEY"])
 
     historical_weather_data = ow.onecall_historical_between_dates(lat, lon,start_date, end_date)
 
