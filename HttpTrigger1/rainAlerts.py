@@ -7,22 +7,18 @@ import requests, os, datetime, json
 
 import azure.functions as func
 
-def mm_to_inch(mm):
-    # Simple function to convert mm to inches as the API doesn't seem to want to do that.
-    inches = mm * 0.0393701
-    return inches
 
 class OpenWeather:
 
     def __init__(self, api_key, base_url = "https://api.openweathermap.org/data/2.5/"):
         self.api_key = api_key
         self.base_url = base_url
-    
 
-    def one_call_historical(self, lat, lon, start_date, end_date, units="imperial"):
+    
+    def onecall_historical(self, lat, lon, end_date, units="imperial"):
 
         url = "%s%s" % (self.base_url, "onecall/timemachine")
-        querystring = {
+        params = {
             'units' : units,
             'appid' : self.api_key,
             'lat' : lat,
@@ -30,101 +26,80 @@ class OpenWeather:
             'dt' : str(end_date.timestamp()).split(".")[0]
         }
         
-        return self.make_request(url, querystring)
+        return requests.request("GET", url, params=params, data=None, headers=None)
     
-    def make_request(self, url, params, data=None, headers=None):
-        import requests
-        return requests.request("GET", url, params=params, data=None, headers=headers)
+    def one_call_current(self):
+        pass
 
-    def historical_between_dates(self, lat, lon, start_date, end_date, original_end_date, all_hourly_data=[], units="imperial"):
+    def filter_weather_data_dates(self, all_weather_data_list, start_date, end_date):
+        all_hourly_data_filtered = []
 
+        for record in all_weather_data_list:
+            # Getting the earliest date from weather dataset
+            record_date = datetime.datetime.fromtimestamp(record['dt'])
+            
+            # Loop through and check if hourly api data is greater than or equal to the start date then add to all hourly data
+            if record_date >= start_date and record_date <= end_date:
+                all_hourly_data_filtered.append(record)
+        
+        # create new data with api call and all hourly data
+        return_data = {'hourly':[], 'status_code':200}
+        # sorting hourly data list by time stamp before returning
+        return_data['hourly'] = sorted(all_hourly_data_filtered, key = lambda i: i['dt'])
+        return return_data
+
+
+    def onecall_historical_between_dates(self, lat, lon, start_date, end_date, original_end_date=None, all_hourly_data=[], units="imperial"):
+        
         #setting variable to preserve original end date
-        original_end_date = original_end_date
+        if original_end_date is None:
+            original_end_date = end_date
 
         # Making API call 
-        data = self.one_call_historical(lat, lon, start_date, end_date)
+        response_weather_data = self.onecall_historical(lat, lon, end_date)
 
-        if data.status_code != 200:
-            response_data = {'text':data.text, 'status_code' : data.status_code}
-            return response_data
+        if response_weather_data.status_code != 200:
+            return_weather_data_dict = {'text':response_weather_data.text, 'status_code' : response_weather_data.status_code}
+            return return_weather_data_dict
 
         # Extracting hourly weather data from API response
-        hourly_data = json.loads(data.text)['hourly']
+        hourly_weather_data_list = json.loads(response_weather_data.text)['hourly']
 
         # Getting the earliest date from weather dataset
-        hourly_data_earliest_date = datetime.datetime.fromtimestamp(hourly_data[0]['dt'])
+        hourly_weather_data_earliest_date = datetime.datetime.fromtimestamp(hourly_weather_data_list[0]['dt'])
 
         # Decreasing the earliest date by one hour
-        new_end_date = (hourly_data_earliest_date - datetime.timedelta(hours=1)).replace(microsecond=0)
+        new_end_date = (hourly_weather_data_earliest_date - datetime.timedelta(hours=1)).replace(microsecond=0)
 
-        if hourly_data_earliest_date > start_date:
-            # Recalling the API call with the earliest date decremented by one hour to pull next day dataset
-            all_hourly_data = hourly_data + all_hourly_data
-            return self.historical_between_dates(lat, lon, start_date, new_end_date, original_end_date, all_hourly_data, units=units)
+        # Checking to see if the earliest date in the weather data list is greater than the start date
+        if hourly_weather_data_earliest_date > start_date:
+            # adding current hourly weather data list into all hourly data list
+            all_hourly_data = hourly_weather_data_list + all_hourly_data
+            # calling this function again to query the API with a new, earlier date range
+            return self.onecall_historical_between_dates(lat, lon, start_date, new_end_date, original_end_date, all_hourly_data, units=units)
+        # iterate hourly weather data to add to filter results to specified time range
         else:
-            # loop through hourly data to add to export specific date range
-            all_hourly_data.extend(hourly_data)
-
-            all_hourly_data_filtered = []
-
-            for record in all_hourly_data:
-                # Getting the earliest date from weather dataset
-                record_date = datetime.datetime.fromtimestamp(record['dt'])
-                
-                # Loop through and check if hourly api data is greater than or equal to the start date then add to all hourly data
-                if record_date >= start_date and record_date <= original_end_date:
-                    all_hourly_data_filtered.append(record)
             
-            # create new data with api call and all hourly data
-            return_data = json.loads(data.text)
-            # sorting hourly data list by time stamp before returning
-            return_data['hourly'] = sorted(all_hourly_data_filtered, key = lambda i: i['dt'])
-            return_data['status_code'] = data.status_code
-            return return_data
+            # Combine all weather data with most recent weather list
+            all_hourly_data.extend(hourly_weather_data_list)
 
-def get_rain_accumulation(hourly_data):
-    
-    accumulated_rainfall = 0    
-    for record in hourly_data:
-        # Checking if the hour of weather data contains information for rain
-        if "rain" in record:
-            rain_accumulation_in_inches = mm_to_inch(record['rain']['1h'])
-            accumulated_rainfall += rain_accumulation_in_inches
-    
-    return accumulated_rainfall
- 
+            date_filtered_weather_data = self.filter_weather_data_dates(all_hourly_data, start_date, original_end_date)
 
-def main_function(end_date, start_date, lat, lon):
-    
-    # Variables
-    end_date = end_date
-    start_date = start_date
-    lat = lat
-    lon = lon
-
-    ow = OpenWeather(os.environ.get('API_KEY'))
-    # data = ow.one_call_historical(lat, lon, start_date, end_date)
-
-    data = ow.historical_between_dates(lat, lon, start_date, end_date, end_date)
-
-    if data['status_code'] != 200:
-        return data
-
-    rain_accumulation = get_rain_accumulation(data['hourly'])
-
-    json_start_date = start_date.isoformat()
-    json_end_date = end_date.isoformat()
-
-    if rain_accumulation > 0:
-        json_start_date = datetime.datetime.fromtimestamp(data['hourly'][0]['dt']).isoformat()
-        json_end_date = datetime.datetime.fromtimestamp(data['hourly'][len(data['hourly'])-1]['dt']).isoformat()
-
+            # return return_data
+            return date_filtered_weather_data
 
     
-    # print("Accumulated Rainfall between %s and %s is %s inches" % (start_time, end_time,  round(accumulated_rainfall,2)))
+    def mm_to_inch(self, mm):
+        # Simple function to convert mm to inches as the API doesn't seem to want to do that.
+        inches = mm * 0.0393701
+        return inches
 
-    return {'text' :{'start_date' : json_start_date, 'end_date' : json_end_date, 'rain_accumulation' : round(rain_accumulation, 2)}, 'status_code' : data['status_code']}
-
-
-# if __name__ == "__main__":
-#     print(main_function())
+    def get_rain_accumulation(self, weather_list):
+        accumulated_rainfall = 0    
+        for record in weather_list:
+            # Checking if the hour of weather data contains information for rain
+            if "rain" in record:
+                rain_accumulation_in_inches = self.mm_to_inch(record['rain']['1h'])
+                accumulated_rainfall += rain_accumulation_in_inches
+        
+        return accumulated_rainfall
