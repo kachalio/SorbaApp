@@ -28,7 +28,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     else:
         rain_accumulation = ow.get_rain_accumulation(historical_weather_data['hourly'])
 
-        return_data = {'text' : {'start_date' : start_date.isoformat(), 'end_date' : end_date.isoformat(), 'rain_accumulation' : rain_accumulation}, 'status_code' : 200 }
+        return_data = {'text' : {'start_date' : start_date.isoformat(), 'end_date' : end_date.isoformat(), 'rain_accumulation' : round(rain_accumulation, 2)}, 'status_code' : 200 }
 
 
 
