@@ -5,3 +5,7 @@ test
 .venv
 .env
 *.pyc
+
+# My ignores
+blob.py
+twit.py
