@@ -8,7 +8,6 @@ from .rainAlerts import OpenWeather as OpenWeather
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
 
-
     # getting parameters
     lat = req.params.get('lat', os.environ["OW_LAT"])
     lon = req.params.get('lon', os.environ["OW_LNG"])
@@ -29,19 +28,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         rain_accumulation = ow.get_rain_accumulation(historical_weather_data['hourly'])
 
         return_data = {'text' : {'start_date' : start_date.isoformat(), 'end_date' : end_date.isoformat(), 'rain_accumulation' : round(rain_accumulation, 2)}, 'status_code' : 200 }
-
-
-
-    # data = None
-    # if not name:
-    #     try:
-    #         req_body = req.get_json()
-    #     except ValueError:
-    #         pass
-    #     else:
-    #         name = req_body.get('name')
-
-    # data = rainAlerts.main_function(end_date, start_date, lat, lon)
 
     if return_data:
         return func.HttpResponse(json.dumps(return_data['text']),status_code=return_data['status_code'])
