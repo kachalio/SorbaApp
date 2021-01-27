@@ -1,6 +1,7 @@
 # My Ignores
 blob.py
 twit.py
+blob__init__.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
